@@ -1,35 +1,33 @@
-# -*- coding: utf-8 -*-
-
-# Define your item pipelines here
-#
-# Don't forget to add your pipeline to the ITEM_PIPELINES setting
-# See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
+import sqlite3
 
 from scrapy import log
 from scrapy.exceptions import DropItem
+from twisted.enterprise import adbapi
 
-from engrscrape.dbhandler import has_url, add_url, add_outlinks
+from engrscrape.dbhandler import add_url_and_outlinks, create_db
+
+# Sets up the db initially (why this can't be done via script I have no idea...)
+class InitializeDBPipeline(object):
+    """ A pipeline for initializing the database. There's an error when trying
+        to initialize from a .sql script with sqlite3. I have no idea why. """
+
+    def __init__(self):
+        self.conn = sqlite3.connect('./links.db')
+
+    def open_spider(self, spider):
+        create_db(self.conn)
 
 # Filters any duplicate links from the incoming stream
-class FilterDuplicatesPipeline(object):
-    """ A pipeline for filtering out duplicate links in the url table """
+class SqlitePipeline(object):
+    """ A pipeline for handling database operations with the SQLite database """
 
     def __init__(self):
-        self.conn = sqlite3.connect('./links.sqlite')
+        self.dbpool = adbapi.ConnectionPool('sqlite3', 'links.db')
 
     def process_item(self, item, spider):
-        if has_url(self.conn, item):
-            raise DropItem("Already added '{}'".format(item['url']))
+        query = self.dbpool.runInteraction(add_url_and_outlinks, item)
+        query.addErrback(self._handle_error, spider, item)
         return item
 
-# Actually adds the data to the database
-class AddItemToDatabasePipeline(object):
-    """ A pipeline for adding filtered results to the database """
-
-    def __init__(self):
-        self.conn = sqlite3.connect('./links.sqlite')
-
-    def process_item(self, item, spider):
-        add_url(self.conn, item)
-        add_outlinks(self.conn, item)
-
+    def _handle_error(self, spider, item):
+        spider.log("Could not add {} to database", item['url'])

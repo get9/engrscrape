@@ -18,3 +18,15 @@ USER_AGENT = 'engrscrape (+http://www.engr.uky.edu)'
 
 # Respect robots.txt
 ROBOTSTXT_OBEY = True
+
+# Pipeline and order
+ITEM_PIPELINES = {
+    'engrscrape.pipelines.InitializeDBPipeline': 200,
+    'engrscrape.pipelines.SqlitePipeline': 500,
+}
+
+# Increase number of concurrent requests
+CONCURRENT_REQUESTS = 32
+
+# Decrease download timeout to something reasonable - pdf's take awhile
+DOWNLOAD_TIMEOUT = 10

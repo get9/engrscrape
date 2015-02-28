@@ -1,34 +1,43 @@
 import sqlite3
 
-from scrapy import log
+from scrapy.exceptions import DropItem
+from contextlib import closing
 
-HEX_BASE = 16
-
-# Check if database currently contains a URL
-def has_url(conn, item):
+# Adds an item to the database and its associated outlinks
+def add_url_and_outlinks(curs, item):
     check_url = "SELECT * FROM urls WHERE hash = ?"
-    with conn.cursor() as curs:
-        curs.execute(check_url, (int(item['xhash'],), HEX_BASE))
-        if curs.fetchone():
-            return True
-    return False
+    curs.execute(check_url, (item['xhash'],))
+    if curs.fetchone():
+        raise DropItem("{} already in database".format(item['url']))
+    else:
+        add_url = "INSERT INTO urls VALUES (?, ?)"
+        curs.execute(add_url, (item['xhash'], item['url']))
+        add_outlinks = "INSERT INTO linkgraph VALUES (?, ?)"
+        inserts = [(item['xhash'], l) for l in item['outlinks']]
 
-# Adds an item to the database; assumes that it doesn't already exist (taken
-# care of by the FilterDuplicatesPipeline in pipelines.py)
-def add_url(conn, item):
-    add = "INSERT INTO urls VALUES (?, ?)"
-    with conn.cursor() as curs:
-        curs.execute(add, (int(item['xhash'], HEX_BASE), item['url']))
+        # Check if there are any links to insert. There won't be in the case of
+        # an endpoint page (i.e. pdf, image, etc)
+        if inserts:
+            curs.executemany(add_outlinks, inserts)
+    return item
 
-# Adds outlinks to the linkgraph table. By virtue of the
-# FilterDuplicatesPipelineObject and the fact that add_url and add_outlinks are
-# called together in the same process_item method, this should only have unique
-# entries in it. Exception checking is included for sanity's sake.
-def add_outlinks(conn, item):
-    add = "INSERT INTO linkgraph VALUES (?, ?)"
-    with conn.cursor() as curs:
-        for h in item['outlink']:
-            try:
-                curs.execute(add, (int(item['xhash'], HEX_BASE), int(h, HEX_BASE)))
-            except sqlite3.IntegrityError:
-                log("outlinks for '{}' already exist".format(item['url']))
+# Creates the database
+def create_db(conn):
+    create_urls = """
+        CREATE TABLE IF NOT EXISTS urls (
+            hash TEXT PRIMARY KEY,
+            url TEXT
+        )
+        """
+    create_linkgraph = """
+        CREATE TABLE IF NOT EXISTS linkgraph (
+            url TEXT,
+            outlink TEXT,
+            FOREIGN KEY(url) REFERENCES urls(hash),
+            FOREIGN KEY(outlink) REFERENCES urls(hash),
+            UNIQUE(url, outlink)
+        )
+        """
+    with closing(conn.cursor()) as curs:
+        curs.execute(create_urls)
+        curs.execute(create_linkgraph)
