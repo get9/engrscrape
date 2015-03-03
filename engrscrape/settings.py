@@ -30,3 +30,6 @@ CONCURRENT_REQUESTS = 32
 
 # Decrease download timeout to something reasonable - pdf's take awhile
 DOWNLOAD_TIMEOUT = 10
+
+# Set log file
+LOG_FILE = 'engrspider.log'

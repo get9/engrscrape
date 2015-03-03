@@ -26,8 +26,8 @@ class SqlitePipeline(object):
 
     def process_item(self, item, spider):
         query = self.dbpool.runInteraction(add_url_and_outlinks, item)
-        query.addErrback(self._handle_error, spider, item)
+        query.addErrback(self._handle_error, item)
         return item
 
-    def _handle_error(self, spider, item):
-        spider.log("Could not add {} to database", item['url'])
+    def _handle_error(self, item):
+        log.msg("Could not add {} to database", item['url'], level=log.WARNING)
