@@ -22,6 +22,7 @@ ROBOTSTXT_OBEY = True
 # Pipeline and order
 ITEM_PIPELINES = {
     'engrscrape.pipelines.InitializeDBPipeline': 200,
+    'engrscrape.pipelines.DropRedirectURLsPipeline': 300,
     'engrscrape.pipelines.SqlitePipeline': 500,
 }
 

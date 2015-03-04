@@ -6,6 +6,15 @@ from twisted.enterprise import adbapi
 
 from engrscrape.dbhandler import add_url_and_outlinks, create_db
 
+from urlparse import urlsplit
+
+allowed_domains = [
+    'engr.uky.edu',
+    'www.engr.uky.edu',
+    'cs.uky.edu',
+    'www.cs.uky.edu',
+]
+
 # Sets up the db initially (why this can't be done via script I have no idea...)
 class InitializeDBPipeline(object):
     """ A pipeline for initializing the database. There's an error when trying
@@ -16,6 +25,17 @@ class InitializeDBPipeline(object):
 
     def open_spider(self, spider):
         create_db(self.conn)
+
+# Drops any items that were populated from a redirected URL
+class DropRedirectURLsPipeline(object):
+    """ A pipeline for dropping any redirected URLs that got resolved by the
+        downloader """
+
+    def process_item(self, item, spider):
+        if urlsplit(item['url']).netloc not in allowed_domains:
+            raise DropItem("Disallowed domain in item pipeline from Downloader middleware resolving redirected URL")
+        else:
+            return item
 
 # Filters any duplicate links from the incoming stream
 class SqlitePipeline(object):
