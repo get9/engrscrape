@@ -5,14 +5,13 @@ from scrapy.exceptions import DropItem
 from twisted.enterprise import adbapi
 
 from engrscrape.dbhandler import add_url_and_outlinks, create_db
+from engrscrape.util import in_domains
 
 from urlparse import urlsplit
 
 allowed_domains = [
     'engr.uky.edu',
-    'www.engr.uky.edu',
-    'cs.uky.edu',
-    'www.cs.uky.edu',
+    #'cs.uky.edu',
 ]
 
 # Sets up the db initially (why this can't be done via script I have no idea...)
@@ -32,10 +31,10 @@ class DropRedirectURLsPipeline(object):
         downloader """
 
     def process_item(self, item, spider):
-        if urlsplit(item['url']).netloc not in allowed_domains:
-            raise DropItem("Disallowed domain in item pipeline from Downloader middleware resolving redirected URL")
-        else:
+        if in_domains(item['url'], allowed_domains):
             return item
+        else:
+            raise DropItem("Disallowed {} in item pipeline from Downloader middleware resolving redirected URL".format(item['url']))
 
 # Filters any duplicate links from the incoming stream
 class SqlitePipeline(object):
@@ -46,8 +45,8 @@ class SqlitePipeline(object):
 
     def process_item(self, item, spider):
         query = self.dbpool.runInteraction(add_url_and_outlinks, item)
-        query.addErrback(self._handle_error, item)
+        query.addErrback(self._handle_error, item['url'])
         return item
 
-    def _handle_error(self, item):
-        log.msg("Could not add {} to database", item['url'], level=log.WARNING)
+    def _handle_error(self, url):
+        log.msg("Could not add {} to database".format(url), level=log.WARNING)

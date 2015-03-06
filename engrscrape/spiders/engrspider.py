@@ -1,5 +1,7 @@
+import re
+
 from engrscrape.items import URLItem
-from engrscrape.util import gethash
+from engrscrape.util import gethash, in_domains, fix_link
 
 from scrapy import Request, log
 from scrapy.contrib.spiders import CrawlSpider, Rule
@@ -11,37 +13,49 @@ from urlparse import urljoin, urlsplit
 # Main spider class
 class EngrSpider(CrawlSpider):
     name = 'engrspider'
-    allowed_domains = [
-        'engr.uky.edu',
-        'cs.uky.edu',
-    ]
     start_urls = [
         'http://www.engr.uky.edu/',
-        'http://cs.uky.edu/',
+        #'http://cs.uky.edu/',
         #'http://cs.uky.edu/~jurek/advising/important_resources.sphp'
     ]
 
+    good_domains = [
+        'engr.uky.edu',
+        #'cs.uky.edu',
+    ]
+
+    # Note: including 'allow_domains' keyword arg replaces 'allowed_domains'
+    # class variable.
+    #rules = (
+    #    Rule(LinkExtractor(deny=r'\/events\/category\/alumni\/\d+-\d*', allow_domains=good_domains, process_value=fix_link), callback='parse_link',
+    #         follow=True),
+    #)
+    
     # Default callback for parsing response from fetch
+    #def parse_link(self, response):
     def parse(self, response):
-        #response = response.replace(url=response.url.strip().strip('.'))
-        print("url = {}".format(response.url))
-        current_url = response.url
+        #print("url = {}".format(response.url))
         # Get a bunch of these errors on endpoint pages; just make outlinks
         # empty if we do.
         links = []
         if hasattr(response, 'xpath') and callable(getattr(response, 'xpath')):
             links = response.xpath('//a/@href').extract()
 
-        # Make every URL absolute and canonical so we can index, fetch, and hash appropriately
-        links = map(lambda l: l.strip().strip('.'), links)
-        links = map(lambda l: urljoin(response.url, l), links)
-        links = map(lambda l: canonicalize_url(l), links)
-        before_domain_filter = set(links)
+        # Make every URL absolute and canonical so we can index, fetch, and hash
+        # appropriately
+        links = map(lambda l: fix_link(l, response.url), links)
 
         # Filter non-domain URLs from the list of outlinks.
-        links = filter(lambda x: urlsplit(x)[1] in self.allowed_domains, links)
-        #print(before_domain_filter - set(links))
-        url_outlinks = set(gethash(u) for u in links)
-        yield URLItem(url=current_url, xhash=gethash(current_url), outlinks=url_outlinks)
-        for url in links:
-            yield Request(url, callback=self.parse)
+        links = filter(lambda x: in_domains(x, self.good_domains), links)
+
+        # Filter out $engr/events/category/alumni/...
+        links = filter(lambda x: not re.search(r'\/events\/category\/alumni\/\d+-\d*', x), links)
+
+        # Construct item
+        item = URLItem()
+        item['url'] = response.url
+        item['xhash'] = gethash(response.url)
+        item['outlinks'] = set(gethash(l) for l in links)
+        yield item
+        for l in links:
+            yield(Request(l))
