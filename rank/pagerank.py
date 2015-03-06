@@ -61,14 +61,22 @@ def compute_g(alpha, S, one):
     return (alpha * S) + ((1 - alpha) * one)
 
 # Get PageRank of all pages by running power method
-def run_power_method(G, iters, N):
+def run_power_method(G, N, sigma):
     # Initialization of I array
     I = np.full((N, 1), (1.0 / N), dtype=float)
-    for i in range(iters):
-        print("iter = {}".format(i))
+    diff = 1.0
+    #for i in range(iters):
+    i = 0
+    while diff > sigma:
+        #print("iter = {}".format(i))
+        oldI = I
         I = np.dot(G, I)
+        diff = np.max(I - oldI)
+        #print("diff = {}".format(diff))
+        i += 1
 
     # Return PageRanks of all pages
+    print("num iters: {}".format(i))
     return I
 
 # Make a list of pairs of URLs and their associated PageRanks
@@ -136,11 +144,11 @@ if __name__ == '__main__':
 
     # Compute PageRanks via power method of 100 iterations
     print("Computing I")
-    pageranks = run_power_method(G, 100, N)
+    pageranks = run_power_method(G, N, 5e-11)
 
     # Get tuples of (hash, pr) tuples
     h_pr_tuples = make_hash_pr_tuples(hashes, pageranks)
 
     # Print out top 10 ranked pages
     for i in sorted(h_pr_tuples, key=lambda x: x[1], reverse=True)[:10]:
-        print("url = {}\nPageRank = {}\nhash = {}\n".format(hash2url(i[0], dbfile), i[1], i[0]))
+        print("{:<50}\t{}".format(hash2url(i[0], dbfile), i[1]))

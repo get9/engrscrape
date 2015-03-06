@@ -28,7 +28,7 @@ example2 = {
         'out': ['Home'],
     },
     'Links': {
-        'out': ['Home', 'External Site A', 'External Site B', 'External Site C'],
+        'out': ['Home', 'External Site A', 'External Site B', 'External Site C', 'External Site D'],
     },
     'External Site A': {
         'out': [],
@@ -37,6 +37,9 @@ example2 = {
         'out': [],
     },
     'External Site C': {
+        'out': [],
+    },
+    'External Site D': {
         'out': [],
     },
 }
@@ -52,7 +55,7 @@ example3 = {
         'out': ['Home'],
     },
     'Links': {
-        'out': ['Home', 'External Site A', 'External Site B', 'External Site C', 'Review A', 'Review B', 'Review C', 'Review D'],
+        'out': ['Home', 'External Site A', 'External Site B', 'External Site C', 'External Site D', 'Review A', 'Review B', 'Review C', 'Review D'],
     },
     'External Site A': {
         'out': [],
@@ -61,6 +64,9 @@ example3 = {
         'out': [],
     },
     'External Site C': {
+        'out': [],
+    },
+    'External Site D': {
         'out': [],
     },
     'Review A': {

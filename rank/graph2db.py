@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 from __future__ import print_function
 from xxhash import xxh64
 
@@ -8,6 +10,29 @@ import sqlite3
 # Hashing function used in previous crawl
 def gethash(x):
     return xxh64(x).hexdigest()
+
+# Creates DB tables
+def create_db(dbfile):
+    conn = sqlite3.connect(dbfile)
+    with conn:
+        curs = conn.cursor()
+        create_urls = """
+            CREATE TABLE IF NOT EXISTS urls (
+                hash TEXT PRIMARY KEY,
+                url TEXT
+            );
+        """
+        create_linkgraph = """
+            CREATE TABLE IF NOT EXISTS linkgraph (
+                url TEXT,
+                outlink TEXT,
+                FOREIGN KEY(url) REFERENCES urls(hash),
+                FOREIGN KEY(outlink) REFERENCES urls(hash),
+                UNIQUE(url, outlink)
+            );
+        """
+        curs.execute(create_urls)
+        curs.execute(create_linkgraph)
 
 # Load graph in via pickle
 def read_graph(filename):
@@ -34,13 +59,11 @@ def construct_tuple_lists(graph):
     urls = []
     linkgraph = []
     for k, v in graph.iteritems():
-        # Construct tuple for 'urls' table
-        urlhash = gethash(k)
-        urls.append((k, urlhash))
+        # Construct tuple for 'urls' table (hash, url)
+        urls.append((gethash(k), k))
         
-        # Parse outlinks and construct a hash for them
-        for u in v['out']:
-            linkgraph.append((urlhash, gethash(u)))
+        # Parse outlinks and construct a hash for them (page, outlink)
+        linkgraph.extend([(gethash(k), gethash(u)) for u in v['out']]) 
 
     return [urls, linkgraph]
 
@@ -57,6 +80,7 @@ def lists2db(dbfile, urls, linkgraph):
 
 if __name__ == "__main__":
     _, graphname, dbname = sys.argv
+    create_db(dbname)
     g = read_graph(graphname)
     urls, linkgraph = construct_tuple_lists(g)
     lists2db(dbname, urls, linkgraph)
